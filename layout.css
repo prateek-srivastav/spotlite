@@ -24,6 +24,7 @@
 .spotlite-separator { height: 1px; }
 .spotlite-scroll { max-height: 480px; }
 .spotlite-results { padding: 2px 8px 8px; }
+.spotlite-corrected { font-size: 12px; padding: 8px 12px 0; }
 .spotlite-group {
   font-size: 11px;
   font-weight: bold;

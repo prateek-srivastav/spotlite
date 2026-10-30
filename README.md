@@ -15,7 +15,13 @@ A macOS-style Spotlight for GNOME. Press **Super+Space**, type, press **Enter**.
 - **Wolfram|Alpha** (optional): add your own free AppID in the preferences and questions
   Wikidata can't answer (`10 usd in inr`, `distance from delhi to mumbai`) get Wolfram|Alpha's
   answer; Space shows its full result. It's only asked when Wikidata has no answer, to spare the quota
+- **Typos**: when a search finds nothing, it is retried with the corrected spelling (Wikipedia's "Did you mean" for names and places, Wiktionary's closest word, a typo or two for app names) and says "Showing results for …"
 - **Web**: a "Search the web" row, plus prefixes that jump to a site: `g`, `ddg`, `yt`, `tr`, `map`, `so`, `gh`, `wiki`, `def`
+
+### Moving the bar
+
+Drag the bar by its edge (the search icon, the space around the results) to move it
+anywhere, like on macOS; it opens there next time. Reset puts it back (preferences).
 
 ### Quick Look
 

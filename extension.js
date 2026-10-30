@@ -17,7 +17,7 @@ export default class SpotliteExtension extends Extension {
   enable() {
     this._settings = this.getSettings();
     this._searcher = new Searcher(this, this._settings);
-    this._overlay = new Overlay(this._searcher);
+    this._overlay = new Overlay(this._searcher, this._settings);
     // SYSTEM_MODAL is Spotlite's own modal mode, so the shortcut also closes it
     Main.wm.addKeybinding("toggle-spotlite", this._settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
       Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW | Shell.ActionMode.SYSTEM_MODAL,

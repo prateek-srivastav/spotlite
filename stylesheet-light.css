@@ -36,3 +36,4 @@
 .spotlite-card-close:hover { background-color: rgba(0, 0, 0, 0.12); }
 .spotlite-card-open { background-color: -st-accent-color; color: -st-accent-fg-color; }
 .spotlite-card-open:hover { background-color: st-lighten(-st-accent-color, 6%); }
+.spotlite-corrected { color: rgba(0, 0, 0, 0.6); }

@@ -5,6 +5,10 @@
       <default><![CDATA[['<Super>space']]]></default>
       <summary>Shortcut that opens and closes Spotlite</summary>
     </key>
+    <key name="panel-position" type="ad">
+      <default>[]</default>
+      <summary>Where the search bar was dragged to: [centre x, top y] as fractions of the screen; empty is the default spot</summary>
+    </key>
     <key name="search-wikipedia" type="b">
       <default>true</default>
       <summary>Show Wikipedia articles (sends the query to wikipedia.org)</summary>

@@ -34,9 +34,11 @@ function wrappingLabel(text, styleClass) {
 
 export const Overlay = GObject.registerClass(
 class SpotliteOverlay extends St.Widget {
-  constructor(searcher) {
+  constructor(searcher, settings) {
     super({ style_class: "spotlite-overlay", reactive: true, visible: false });
     this._searcher = searcher;
+    this._settings = settings;
+    this._drag = null;           // while the panel is being moved: where the press started
     this._isOpen = false;
     this._grab = null;
     this._gen = 0;               // bumped per keystroke; late results for older text are dropped
@@ -70,8 +72,40 @@ class SpotliteOverlay extends St.Widget {
           this._closeCard();
       } else if (!inside(this._panel)) {
         this.close();
+      } else if (this._isDragHandle(target)) {
+        // like macOS, the bar moves when dragged by its frame (not its text or results)
+        const [x, y] = event.get_coords();
+        // where the panel really is: while centred, frame.x still holds an old fixed position
+        const box = this._frame.get_allocation_box();
+        this._drag = { x, y, frameX: box.x1, frameY: box.y1, moved: false };
+        return Clutter.EVENT_STOP;
       }
       return Clutter.EVENT_PROPAGATE;
+    });
+    this.connect("motion-event", (_actor, event) => {
+      if (!this._drag)
+        return Clutter.EVENT_PROPAGATE;
+      const [x, y] = event.get_coords();
+      const d = this._drag;
+      if (!d.moved && Math.hypot(x - d.x, y - d.y) < 4)
+        return Clutter.EVENT_STOP; // a click, not yet a drag
+      d.moved = true;
+      this.set_cursor_type(Clutter.CursorType.MOVE);
+      this._placeFrame(d.frameX + x - d.x, d.frameY + y - d.y);
+      return Clutter.EVENT_STOP;
+    });
+    this.connect("button-release-event", () => {
+      if (!this._drag)
+        return Clutter.EVENT_PROPAGATE;
+      if (this._drag.moved) {
+        this.set_cursor_type(Clutter.CursorType.DEFAULT);
+        // remembered as fractions of the screen, so it lands in the same spot on any monitor
+        const centre = (this._frame.x + this._frame.width / 2) / this.width;
+        this._settings.set_value("panel-position", new GLib.Variant("ad", [centre, this._frame.y / this.height]));
+      }
+      this._drag = null;
+      this._entry.grab_key_focus();
+      return Clutter.EVENT_STOP;
     });
     // if focus ever leaves the entry (a click on the card), keys still work
     this.connect("key-press-event", (_actor, event) => {
@@ -92,9 +126,9 @@ class SpotliteOverlay extends St.Widget {
     // frosted glass under the panel, sharing its box; the frame is what gets placed
     this._glass = new Glass({ radius: 18 });
     this._frame = new St.Widget({ layout_manager: new Clutter.BinLayout() });
-    this._frame.add_constraint(new Clutter.AlignConstraint({
-      source: this, align_axis: Clutter.AlignAxis.X_AXIS, factor: 0.5,
-    }));
+    // centred until the user drags it somewhere (then _placeFrame positions it)
+    this._centre = new Clutter.AlignConstraint({ source: this, align_axis: Clutter.AlignAxis.X_AXIS, factor: 0.5 });
+    this._frame.add_constraint(this._centre);
     this._frame.add_child(this._glass);
     this._frame.add_child(this._panel);
     this._frame.connect("notify::allocation", () => this._glass.sync());
@@ -135,6 +169,32 @@ class SpotliteOverlay extends St.Widget {
     return this._isOpen;
   }
 
+  // the panel's own frame: padding, the search icon, group headings; not the text, not a result
+  _isDragHandle(target) {
+    for (let a = target; a && a !== this._panel; a = a.get_parent()) {
+      if (a === this._entry || a instanceof St.Button || a instanceof St.ScrollBar)
+        return false;
+    }
+    return true;
+  }
+
+  // move the panel, kept fully on the monitor (its height changes with the results)
+  _placeFrame(x, y) {
+    const [, width] = this._frame.get_preferred_width(-1);
+    this._centre.enabled = false;
+    this._frame.set_position(
+      Math.round(Math.max(0, Math.min(x, this.width - width))),
+      Math.round(Math.max(0, Math.min(y, this.height - 120))));
+    this._fitResults(this._frame.y);
+  }
+
+  // the results list scrolls rather than run off the bottom of the screen when the bar sits low
+  _fitResults(top) {
+    const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    const room = Math.floor((this.height - top) / scale) - 100; // the search row and a margin
+    this._scroll.style = `max-height: ${Math.max(120, Math.min(480, room))}px;`;
+  }
+
   // ------------------------------------------------------------ open / close
 
   open() {
@@ -144,7 +204,17 @@ class SpotliteOverlay extends St.Widget {
     const monitor = Main.layoutManager.currentMonitor;
     this.set_position(monitor.x, monitor.y);
     this.set_size(monitor.width, monitor.height);
-    this._frame.y = Math.round(monitor.height * PANEL_TOP);
+    const saved = this._settings.get_value("panel-position").deep_unpack();
+    if (saved.length === 2) {
+      const [, width] = this._frame.get_preferred_width(-1);
+      this._placeFrame(saved[0] * monitor.width - width / 2, saved[1] * monitor.height);
+    } else {
+      // centring adds to the fixed position, so clear the one a drag left behind
+      this._frame.x = 0;
+      this._centre.enabled = true;
+      this._frame.y = Math.round(monitor.height * PANEL_TOP);
+      this._fitResults(this._frame.y);
+    }
     this._cardMaxHeight = Math.round(monitor.height * CARD_MAX_HEIGHT);
 
     this._grab = Main.pushModal(this, { actionMode: Shell.ActionMode.SYSTEM_MODAL });
@@ -284,6 +354,12 @@ class SpotliteOverlay extends St.Widget {
     this._rows = [];
     this._selected = -1;
     const results = this._results();
+    // a misspelling was corrected for the leading result: say what was searched instead
+    const fix = results[0]?.fix;
+    if (fix) {
+      const corrected = this._query.text.replace(new RegExp(fix[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), fix[1]);
+      this._list.add_child(new St.Label({ text: `Showing results for “${corrected}”`, style_class: "spotlite-corrected" }));
+    }
     let group = null;
     for (const result of results) {
       if (result.group !== group) {

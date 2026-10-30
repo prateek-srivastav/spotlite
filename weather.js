@@ -57,10 +57,16 @@ export async function weather(ctx, question, cancellable) {
   const place = question.place ?? homeCity(ctx.settings);
   if (!place)
     return [];
-  const geo = await ctx.net.getJson(
-    `https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=${encodeURIComponent(place)}`,
-    cancellable);
-  const where = geo?.results?.[0];
+  const geocode = async name => (await ctx.net.getJson(
+    `https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=${encodeURIComponent(name)}`,
+    cancellable))?.results?.[0];
+  let where = await geocode(place), fix = null;
+  if (!where) {
+    // Open-Meteo needs the exact name: correct a misspelt city ("ghaziabd" -> ghaziabad)
+    const suggestion = await ctx.suggest(place, cancellable);
+    where = suggestion ? await geocode(suggestion) : null;
+    fix = where ? [place, suggestion] : null;
+  }
   if (!where)
     return [];
   const fahrenheit = ctx.settings.get_string("temperature-unit") === "fahrenheit";
@@ -110,6 +116,7 @@ export async function weather(ctx, question, cancellable) {
     icon: gicon,
     url: ctx.webSearch(`weather ${where.name}`),
     key: `weather:${name}`,
+    fix,
     rich: { subtitle, text: outlook },
     preview: {
       title: `Weather in ${where.name}`,

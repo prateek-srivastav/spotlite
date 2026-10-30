@@ -74,6 +74,7 @@ export class Searcher {
   constructor(extension, settings) {
     this._settings = settings;
     this._cache = new Map(); // "source\nquery" -> results, oldest first
+    this._suggestions = new Map(); // query -> Wikipedia's spelling of it, or null
     const file = name => Gio.FileIcon.new(extension.dir.get_child("icons").get_child(name));
     this._icons = {
       dictionary: file("dictionary.svg"),
@@ -92,7 +93,20 @@ export class Searcher {
       settings: this._settings,
       wikipediaLanguage: this._settings.get_string("wikipedia-language").trim() || "en",
       webSearch: text => this._webUrl(text),
+      suggest: (text, cancellable) => this._suggest(text, cancellable),
     };
+  }
+
+  // Wikipedia's spelling for `text`, asked once per text (sources fall back to it when they find nothing)
+  async _suggest(text, cancellable) {
+    const key = text.toLowerCase();
+    if (this._suggestions.has(key))
+      return this._suggestions.get(key);
+    const suggestion = await Online.spellingSuggestion(this.net, this._ctx.wikipediaLanguage, text, cancellable);
+    this._suggestions.set(key, suggestion);
+    if (this._suggestions.size > CACHE_SIZE)
+      this._suggestions.delete(this._suggestions.keys().next().value);
+    return suggestion;
   }
 
   instant(query) {
@@ -167,14 +181,21 @@ export class Searcher {
     const typed = query.text.toLowerCase();
     const nameLength = id => appSystem.lookup_app(id)?.get_name().length ?? Infinity;
     // on a usage tie (never-used apps), the shorter name wins: "ter" -> Terminal, not Terminal Preferences
-    const ids = Shell.AppSystem.search(query.text)
+    let ids = Shell.AppSystem.search(query.text)
       .flatMap(group => group.sort((a, b) => usage.compare(a, b) || nameLength(a) - nameLength(b)));
+    let fix = null;
+    if (!ids.length && typed.length >= 4) {
+      // nothing by name: allow a typo or two ("firfox", "termnal")
+      ids = closeApps(appSystem, typed);
+      fix = ids.length ? [query.text, appSystem.lookup_app(ids[0]).get_name()] : null;
+    }
     const results = [];
     for (const id of ids) {
       const app = appSystem.lookup_app(id);
       if (!app)
         continue;
-      const top = results.length === 0 && words(app.get_name()).some(w => w.startsWith(typed));
+      // the best app leads when its name starts with what was typed, or is what was meant ("firfox")
+      const top = results.length === 0 && (fix !== null || words(app.get_name()).some(w => w.startsWith(typed)));
       results.push({
         group: top ? "Top Hit" : "Applications",
         title: app.get_name(),
@@ -182,6 +203,7 @@ export class Searcher {
         icon: app.get_icon() ?? Gio.ThemedIcon.new("application-x-executable"),
         app,
         key: `app:${id}`,
+        fix: results.length === 0 ? fix : null,
         preview: () => appPreview(app),
       });
       if (results.length === 6)
@@ -244,6 +266,37 @@ export class Searcher {
     this._files.destroy();
     this.net.destroy();
   }
+}
+
+// edits needed to turn a into b (insert, delete, substitute, swap neighbours)
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++)
+    d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// installed apps whose name (or a word of it, or its start) is within a typo or two of `typed`
+function closeApps(appSystem, typed) {
+  const allowed = typed.length <= 5 ? 1 : 2;
+  const scored = [];
+  for (const info of appSystem.get_installed()) {
+    if (!info.should_show())
+      continue;
+    const name = info.get_name().toLowerCase();
+    const candidates = [name, ...words(name), name.slice(0, typed.length)];
+    const distance = Math.min(...candidates.map(c => editDistance(typed, c)));
+    if (distance <= allowed)
+      scored.push([distance, info.get_id()]);
+  }
+  return scored.sort((a, b) => a[0] - b[0]).slice(0, 6).map(([, id]) => id);
 }
 
 function appPreview(app) {

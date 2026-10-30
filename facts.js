@@ -245,8 +245,22 @@ async function bestSentence(ctx, page, terms, cancellable) {
   return best?.sentence ?? null;
 }
 
-/** A Top Hit answering the question in `text`, or [] if there's no question or no answer. */
+/** A Top Hit answering the question in `text`, or [] if there's no question or no answer;
+ *  a misspelt question is retried with Wikipedia's spelling ("eifel tower hight"). */
 export async function answer(ctx, text, cancellable) {
+  const found = await answerFor(ctx, text, cancellable);
+  if (found.topic || (found.length && !found[0].rich?.sentence))
+    return found;
+  const suggestion = await ctx.suggest(text, cancellable);
+  if (!suggestion)
+    return found;
+  const corrected = await answerFor(ctx, suggestion, cancellable);
+  if (corrected.topic)
+    return corrected; // "taj mahl": a topic once spelt right
+  return corrected.length ? corrected.map(r => ({ ...r, fix: [text, suggestion] })) : found;
+}
+
+async function answerFor(ctx, text, cancellable) {
   const words = text.replace(/[?!.,]+/g, " ").replace(/['’]s\b/g, "").split(/\s+/).filter(Boolean);
   if (words.length < 2)
     return [];

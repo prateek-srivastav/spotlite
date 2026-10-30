@@ -21,6 +21,26 @@ function normalize(text) {
     .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+const query = params => Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+
+/** Wikipedia's "Did you mean" for `text` (good for names and places), or null. */
+export async function spellingSuggestion(net, lang, text, cancellable) {
+  const data = await net.getJson(`https://${lang}.wikipedia.org/w/api.php?${query({
+    action: "query", format: "json", formatversion: "2", list: "search", srlimit: "1",
+    srinfo: "suggestion", srprop: "", srsearch: text,
+  })}`, cancellable);
+  const suggestion = data?.query?.searchinfo?.suggestion;
+  return suggestion && normalize(suggestion) !== normalize(text) ? suggestion : null;
+}
+
+// Wiktionary's fuzzy title match: the closest real word to a misspelt one ("serendipty")
+async function closestWord(net, word, cancellable) {
+  const data = await net.getJson(`https://en.wiktionary.org/w/api.php?${query({
+    action: "opensearch", format: "json", limit: "5", profile: "fuzzy", namespace: "0", search: word,
+  })}`, cancellable);
+  return (data?.[1] ?? []).find(w => !/\s/.test(w) && w.toLowerCase() !== word.toLowerCase()) ?? null;
+}
+
 async function fromDictionaryApi(net, word, cancellable) {
   const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
   const entries = await net.getJson(url, cancellable, { quick: true }) ?? [];
@@ -58,6 +78,17 @@ async function fromWiktionary(net, word, cancellable) {
 }
 
 export async function dictionary(ctx, word, cancellable) {
+  const found = await define(ctx, word, cancellable);
+  if (found.length)
+    return found;
+  // not a word: try the closest one ("serendipty" -> serendipity)
+  const closest = await closestWord(ctx.net, word, cancellable);
+  if (!closest)
+    return [];
+  return (await define(ctx, closest, cancellable)).map(r => ({ ...r, fix: [word, closest] }));
+}
+
+async function define(ctx, word, cancellable) {
   let meanings = [], phonetic = "", source = "dictionaryapi";
   try {
     ({ meanings, phonetic } = await fromDictionaryApi(ctx.net, word, cancellable));
@@ -111,6 +142,20 @@ export async function dictionary(ctx, word, cancellable) {
 }
 
 export async function wikipedia(ctx, term, cancellable) {
+  const found = await articles(ctx, term, cancellable);
+  if (found.some(r => r.goodMatch))
+    return found;
+  // nothing clearly matches what was typed: try Wikipedia's own spelling ("taj mahl")
+  const suggestion = await ctx.suggest(term, cancellable);
+  if (!suggestion)
+    return found;
+  // when the typed text matched nothing well, the corrected search is the better guess
+  // even without an exact title ("eifel tower hight" -> Eiffel Tower, not Ford Motor Company)
+  const corrected = await articles(ctx, suggestion, cancellable);
+  return corrected.length ? corrected.map(r => ({ ...r, fix: [term, suggestion] })) : found;
+}
+
+async function articles(ctx, term, cancellable) {
   const lang = ctx.wikipediaLanguage;
   const params = Object.entries({
     action: "query", format: "json", formatversion: "2", redirects: "1",

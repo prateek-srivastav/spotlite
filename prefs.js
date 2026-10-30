@@ -65,6 +65,16 @@ export default class SpotlitePreferences extends ExtensionPreferences {
     for (const key of INPUT_SOURCE_KEYS)
       wm.connect(`changed::${key}`, update);
     update();
+
+    // the bar can be dragged anywhere (by its frame); this puts it back
+    const position = new Adw.ActionRow({ title: "Search bar position", subtitle: "Drag the bar by its edge to move it" });
+    const reset = new Gtk.Button({ label: "Reset", valign: Gtk.Align.CENTER });
+    reset.connect("clicked", () => settings.reset("panel-position"));
+    position.add_suffix(reset);
+    const moved = () => (reset.sensitive = settings.get_value("panel-position").n_children() > 0);
+    settings.connect("changed::panel-position", moved);
+    moved();
+    group.add(position);
     return group;
   }
 
