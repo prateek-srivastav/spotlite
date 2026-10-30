@@ -1,0 +1,38 @@
+@import url("layout.css");
+
+.spotlite-panel {
+  background-color: rgba(30, 30, 34, 0.62); /* translucent: frosted glass (glass.js) shows through */
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+}
+.spotlite-entry, .spotlite-entry:focus, .spotlite-entry:hover { color: #ffffff; caret-color: #ffffff; }
+.spotlite-entry StLabel.hint-text { color: rgba(255, 255, 255, 0.4); }
+.spotlite-search-icon { color: rgba(255, 255, 255, 0.6); }
+.spotlite-separator { background-color: rgba(255, 255, 255, 0.1); }
+.spotlite-group { color: rgba(255, 255, 255, 0.5); }
+.spotlite-row { color: #ffffff; }
+.spotlite-row:hover { background-color: rgba(255, 255, 255, 0.06); }
+.spotlite-row:selected { background-color: -st-accent-color; color: -st-accent-fg-color; }
+.spotlite-row-subtitle { color: rgba(255, 255, 255, 0.6); }
+.spotlite-row:selected .spotlite-row-subtitle { color: -st-accent-fg-color; }
+.spotlite-top { background-color: rgba(255, 255, 255, 0.06); }
+.spotlite-top-subtitle, .spotlite-top-text { color: rgba(255, 255, 255, 0.7); }
+.spotlite-top:selected .spotlite-top-subtitle, .spotlite-top:selected .spotlite-top-text { color: -st-accent-fg-color; }
+
+.spotlite-scrim { background-color: rgba(0, 0, 0, 0.4); }
+.spotlite-card {
+  background-color: #242428;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+}
+.spotlite-hero { background-color: rgba(255, 255, 255, 0.05); }
+.spotlite-card-subtitle, .spotlite-card-meta, .spotlite-card-example { color: rgba(255, 255, 255, 0.6); }
+.spotlite-card-heading { color: -st-accent-color; }
+.spotlite-card-number { color: rgba(255, 255, 255, 0.45); }
+.spotlite-card-mono { background-color: rgba(255, 255, 255, 0.06); }
+.spotlite-card-close { background-color: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.45); }
+.spotlite-card-close:hover { background-color: rgba(255, 255, 255, 0.18); }
+.spotlite-card-open { background-color: -st-accent-color; color: -st-accent-fg-color; }
+.spotlite-card-open:hover { background-color: st-lighten(-st-accent-color, 6%); }

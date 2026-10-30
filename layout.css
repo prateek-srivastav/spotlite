@@ -1,0 +1,78 @@
+/* Sizes and shapes. Colours live in stylesheet-dark.css / stylesheet-light.css,
+   which import this file; GNOME Shell loads the one matching the system style. */
+
+.spotlite-overlay { background: none; }
+
+.spotlite-panel {
+  width: 680px;
+  border-radius: 18px;
+  border-width: 1px;
+}
+.spotlite-search-row { padding: 14px 18px; spacing: 12px; }
+.spotlite-search-icon { icon-size: 22px; }
+.spotlite-entry,
+.spotlite-entry:focus,
+.spotlite-entry:hover {
+  font-size: 21px;
+  /* GNOME's theme draws a focus ring with !important; only !important beats it */
+  background-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  padding: 2px 0;
+  min-height: 0;
+}
+.spotlite-separator { height: 1px; }
+.spotlite-scroll { max-height: 480px; }
+.spotlite-results { padding: 2px 8px 8px; }
+.spotlite-group {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 10px 12px 3px;
+}
+.spotlite-row { border-radius: 10px; padding: 6px 10px; }
+.spotlite-row-box { spacing: 12px; }
+.spotlite-row-title { font-weight: bold; }
+.spotlite-row-subtitle { font-size: 13px; }
+
+/* the large first row for a knowledge answer */
+.spotlite-top { border-radius: 12px; padding: 12px 12px; }
+.spotlite-top-box { spacing: 16px; }
+.spotlite-top-image { border-radius: 10px; }
+.spotlite-top-title { font-size: 22px; font-weight: 800; }
+.spotlite-top-sentence { font-size: 17px; font-weight: bold; }
+.spotlite-top-subtitle { font-size: 14px; padding-top: 1px; }
+.spotlite-top-text { font-size: 14px; padding-top: 6px; }
+
+.spotlite-card {
+  width: 720px;
+  border-radius: 22px;
+  border-width: 1px;
+}
+.spotlite-card-content { padding: 4px 30px 28px; spacing: 12px; }
+.spotlite-hero {
+  height: 280px;
+  border-radius: 14px;
+  background-size: contain;
+  background-position: center;
+}
+.spotlite-card-head { spacing: 14px; }
+.spotlite-card-title { font-size: 28px; font-weight: 800; }
+.spotlite-card-subtitle { font-size: 15px; }
+.spotlite-card-paragraph { font-size: 15px; }
+.spotlite-card-heading { font-weight: bold; font-style: italic; padding-top: 8px; }
+.spotlite-card-definition { spacing: 10px; }
+.spotlite-card-number { font-weight: bold; min-width: 16px; }
+.spotlite-card-example { font-style: italic; font-size: 14px; }
+.spotlite-card-meta { font-size: 13px; }
+.spotlite-card-mono { font-family: monospace; font-size: 12px; padding: 12px; border-radius: 10px; }
+/* Quick Look toolbar: round close button on the left, open-the-source on the right */
+.spotlite-card-toolbar { padding: 14px 16px 6px; }
+.spotlite-card-close { border-radius: 99px; width: 26px; height: 26px; }
+.spotlite-card-open { border-radius: 99px; padding: 5px 12px 5px 14px; font-size: 13px; font-weight: bold; }
+.spotlite-card-open-box { spacing: 6px; }
+
+/* table rows in Quick Look (the weather forecast) */
+.spotlite-card-columns { font-size: 15px; }
+.spotlite-card-cell-0 { width: 110px; font-weight: bold; }
+.spotlite-card-cell-1 { width: 110px; }
+.spotlite-card-cell-2 { width: 160px; }

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.spotlite" path="/org/gnome/shell/extensions/spotlite/">
+    <key name="toggle-spotlite" type="as">
+      <default><![CDATA[['<Super>space']]]></default>
+      <summary>Shortcut that opens and closes Spotlite</summary>
+    </key>
+    <key name="search-wikipedia" type="b">
+      <default>true</default>
+      <summary>Show Wikipedia articles (sends the query to wikipedia.org)</summary>
+    </key>
+    <key name="wikipedia-language" type="s">
+      <default>'en'</default>
+      <summary>Wikipedia language code, e.g. en, de, hi</summary>
+    </key>
+    <key name="search-dictionary" type="b">
+      <default>true</default>
+      <summary>Show English definitions (sends single words to dictionaryapi.dev and wiktionary.org)</summary>
+    </key>
+    <key name="search-files" type="b">
+      <default>true</default>
+      <summary>Show files from GNOME's search index (localsearch); stays on this computer</summary>
+    </key>
+    <key name="search-calculator" type="b">
+      <default>true</default>
+      <summary>Show the result of sums like 12*(3+4)</summary>
+    </key>
+    <key name="search-weather" type="b">
+      <default>true</default>
+      <summary>Answer weather questions (sends the city to open-meteo.com)</summary>
+    </key>
+    <key name="weather-location" type="s">
+      <default>''</default>
+      <summary>Home city for "weather" without a place; empty uses the city of the system time zone</summary>
+    </key>
+    <key name="temperature-unit" type="s">
+      <choices>
+        <choice value="celsius"/>
+        <choice value="fahrenheit"/>
+      </choices>
+      <default>'celsius'</default>
+      <summary>Temperature unit for weather answers</summary>
+    </key>
+    <key name="wolfram-appid" type="s">
+      <default>''</default>
+      <summary>Wolfram|Alpha AppID; empty turns Wolfram|Alpha answers off</summary>
+    </key>
+    <key name="web-engine" type="s">
+      <choices>
+        <choice value="google"/>
+        <choice value="duckduckgo"/>
+        <choice value="bing"/>
+        <choice value="brave"/>
+        <choice value="ecosia"/>
+        <choice value="startpage"/>
+      </choices>
+      <default>'google'</default>
+      <summary>Search engine for the "Search the web" row</summary>
+    </key>
+  </schema>
+</schemalist>
