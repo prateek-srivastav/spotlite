@@ -99,8 +99,8 @@ async function searchProperties(ctx, term, cancellable) {
   });
 }
 
-function bestClaims(claims) {
-  const live = (claims ?? []).filter(c => c.rank !== "deprecated" && c.mainsnak?.datavalue);
+function bestClaims(all) {
+  const live = (all ?? []).filter(c => c.rank !== "deprecated" && c.mainsnak?.datavalue);
   const preferred = live.filter(c => c.rank === "preferred");
   if (preferred.length)
     return preferred;

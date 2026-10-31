@@ -54,10 +54,13 @@ export default class SpotliteExtension extends Extension {
     });
     notification.addAction("Open Settings", () => this.openPreferences());
     source.addNotification(notification);
+    this._notification = notification;
   }
 
   disable() {
     Main.wm.removeKeybinding("toggle-spotlite");
+    this._notification?.destroy();
+    this._notification = null;
     this._overlay.destroy();
     this._overlay = null;
     this._searcher.destroy();

@@ -11,8 +11,6 @@ const FULL = "https://api.wolframalpha.com/v2/query";
 const NO_ANSWER = [501, 400]; // Wolfram|Alpha understood nothing it could answer briefly
 const BAD_APPID = [401, 403];
 
-let warnedAppId = false;
-
 const enc = encodeURIComponent;
 
 // the two APIs spell it differently: Short Answers "imperial", Full Results "nonmetric"
@@ -62,12 +60,10 @@ export async function wolfram(ctx, text, cancellable) {
   } catch (e) {
     if (cancellable?.is_cancelled())
       throw e;
-    if (BAD_APPID.includes(e.status) && !warnedAppId) {
-      warnedAppId = true;
-      console.warn("Spotlite: Wolfram|Alpha rejected the AppID set in the preferences");
-    } else if (!NO_ANSWER.includes(e.status)) {
+    if (BAD_APPID.includes(e.status))
+      ctx.warnOnce("Spotlite: Wolfram|Alpha rejected the AppID set in the preferences");
+    else if (!NO_ANSWER.includes(e.status))
       console.warn(`Spotlite: Wolfram|Alpha: ${e.message}`);
-    }
     return [];
   }
   // "rupee952.69  (Indian rupees)": a unit word glued to the number, doubled spaces

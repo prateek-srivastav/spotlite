@@ -1,6 +1,8 @@
 # Spotlite
 
-A macOS-style Spotlight for GNOME. Press **Super+Space**, type, press **Enter**.
+A fast search bar for GNOME, inspired by macOS Spotlight. Press **Super+Space**, type, press **Enter**.
+
+![Top Hit for “taj mahal”](screenshots/top-hit.png)
 
 - **Apps**: GNOME's own app search, ranked by how often you use each app
 - **Files**: from GNOME's search index (localsearch)
@@ -25,6 +27,8 @@ anywhere, like on macOS; it opens there next time. Reset puts it back (preferenc
 
 ### Quick Look
 
+![Quick Look card](screenshots/quick-look.png)
+
 Select a result with **↑/↓** and press **Space** for a card with the details: the
 Wikipedia summary and picture, every meaning of a word with examples, an image or
 the start of a text file. **↑/↓** flips through results with the card open,
@@ -42,7 +46,7 @@ cd spotlite
 ./pack.sh --install
 ```
 
-Log out and back in, then enable it in the Extensions app (or `gnome-extensions enable spotlite@prateek-srivastav`).
+Log out and back in, then enable it in the Extensions app (or `gnome-extensions enable spotlite@prateek-srivastav.github.io`).
 
 Needs GNOME Shell 50. File results need localsearch (installed by default on Fedora and Ubuntu).
 
@@ -66,11 +70,11 @@ On Wayland, GNOME Shell only loads extension changes at login. Test in a nested
 shell instead (needs `mutter-devkit`):
 
 ```sh
-ln -s "$PWD" ~/.local/share/gnome-shell/extensions/spotlite@prateek-srivastav
+ln -s "$PWD" ~/.local/share/gnome-shell/extensions/spotlite@prateek-srivastav.github.io
 glib-compile-schemas schemas/
 env GSETTINGS_BACKEND=memory dbus-run-session -- gnome-shell --devkit --wayland
 # then, in a terminal inside the nested shell:
-gnome-extensions enable spotlite@prateek-srivastav
+gnome-extensions enable spotlite@prateek-srivastav.github.io
 ```
 
 Keep `GSETTINGS_BACKEND=memory`, and set it *before* `dbus-run-session`. Without

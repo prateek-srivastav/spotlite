@@ -75,6 +75,7 @@ export class Searcher {
     this._settings = settings;
     this._cache = new Map(); // "source\nquery" -> results, oldest first
     this._suggestions = new Map(); // query -> Wikipedia's spelling of it, or null
+    this._warned = new Set();      // warnings already logged, so a bad setting isn't logged on every keystroke
     const file = name => Gio.FileIcon.new(extension.dir.get_child("icons").get_child(name));
     this._icons = {
       dictionary: file("dictionary.svg"),
@@ -94,6 +95,11 @@ export class Searcher {
       wikipediaLanguage: this._settings.get_string("wikipedia-language").trim() || "en",
       webSearch: text => this._webUrl(text),
       suggest: (text, cancellable) => this._suggest(text, cancellable),
+      warnOnce: message => {
+        if (!this._warned.has(message))
+          console.warn(message);
+        this._warned.add(message);
+      },
     };
   }
 

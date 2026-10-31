@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build the zip that goes to extensions.gnome.org (or `gnome-extensions install`).
-#   ./pack.sh            -> spotlite@prateek-srivastav.shell-extension.zip
+#   ./pack.sh            -> spotlite@prateek-srivastav.github.io.shell-extension.zip
 #   ./pack.sh --install  -> also installs it for this user (log out and in to load it)
 set -eu
 cd "$(dirname "$0")"
@@ -12,9 +12,9 @@ gnome-extensions pack --force \
   --extra-source=icons --extra-source=LICENSE \
   --schema=schemas/org.gnome.shell.extensions.spotlite.gschema.xml \
   .
-echo "built spotlite@prateek-srivastav.shell-extension.zip"
+echo "built spotlite@prateek-srivastav.github.io.shell-extension.zip"
 
 if [ "${1:-}" = "--install" ]; then
-  gnome-extensions install --force spotlite@prateek-srivastav.shell-extension.zip
-  echo "installed; log out and back in, then: gnome-extensions enable spotlite@prateek-srivastav"
+  gnome-extensions install --force spotlite@prateek-srivastav.github.io.shell-extension.zip
+  echo "installed; log out and back in, then: gnome-extensions enable spotlite@prateek-srivastav.github.io"
 fi

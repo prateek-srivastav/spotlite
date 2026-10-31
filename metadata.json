@@ -1,7 +1,7 @@
 {
-  "uuid": "spotlite@prateek-srivastav",
+  "uuid": "spotlite@prateek-srivastav.github.io",
   "name": "Spotlite",
-  "description": "A macOS-style Spotlight for GNOME. Press Super+Space and type: apps, files, sums, the meaning of a word, a Wikipedia topic or a web search, all without opening a browser. Select a result and press Space for a Quick Look card with the details; Esc closes it.\n\nIt also answers questions directly: “age of rihanna”, “capital of france”, “weather in paris”.\n\nOnline lookups send what you type to wikipedia.org and wikidata.org (articles and facts), wiktionary.org and dictionaryapi.dev (definitions) and open-meteo.com (weather); wolframalpha.com only if you add your own AppID. Each can be turned off in the preferences.",
+  "description": "A fast search bar for GNOME, inspired by macOS Spotlight. Press Super+Space and type: apps, files, sums, the meaning of a word, a Wikipedia topic or a web search, all without opening a browser. Select a result and press Space for a Quick Look card with the details; Esc closes it. Pressing Enter on a calculation copies the result to the clipboard.\n\nIt also answers questions directly: “age of rihanna”, “capital of france”, “weather in paris”.\n\nOnline lookups send what you type to wikipedia.org and wikidata.org (articles and facts), wiktionary.org and dictionaryapi.dev (definitions) and open-meteo.com (weather); wolframalpha.com only if you add your own AppID. Each can be turned off in the preferences.",
   "shell-version": ["50"],
   "url": "https://github.com/prateek-srivastav/spotlite",
   "settings-schema": "org.gnome.shell.extensions.spotlite",
