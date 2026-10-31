@@ -23,7 +23,11 @@ A fast search bar for GNOME, inspired by macOS Spotlight. Press **Super+Space**,
 ### Moving the bar
 
 Drag the bar by its edge (the search icon, the space around the results) to move it
-anywhere, like on macOS; it opens there next time. Reset puts it back (preferences).
+anywhere, like on macOS; it opens there next time. The Quick Look card moves the same way,
+by its toolbar or picture. Reset puts both back (preferences).
+
+Spotlite only takes the keyboard: the windows underneath keep scrolling and clicking while it's
+open, and clicking one (or switching with Alt+Tab) closes Spotlite, as on macOS.
 
 ### Quick Look
 
@@ -32,7 +36,7 @@ anywhere, like on macOS; it opens there next time. Reset puts it back (preferenc
 Select a result with **↑/↓** and press **Space** for a card with the details: the
 Wikipedia summary and picture, every meaning of a word with examples, an image or
 the start of a text file. **↑/↓** flips through results with the card open,
-**Enter** opens the source, **Esc** or **Space** closes it. **Shift+Space** opens
+**Enter** opens the source, **Esc** or **Space** closes it. Its text can be selected with the mouse and copied with **Ctrl+C**. **Shift+Space** opens
 the card without selecting first. Plain Space types a space while you're still
 typing, which is why it needs the arrow keys first.
 

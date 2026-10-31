@@ -20,9 +20,8 @@
 .spotlite-top-subtitle, .spotlite-top-text { color: rgba(255, 255, 255, 0.7); }
 .spotlite-top:selected .spotlite-top-subtitle, .spotlite-top:selected .spotlite-top-text { color: -st-accent-fg-color; }
 
-.spotlite-scrim { background-color: rgba(0, 0, 0, 0.4); }
 .spotlite-card {
-  background-color: #242428;
+  background-color: rgba(30, 30, 34, 0.7); /* translucent: frosted glass (glass.js) shows through */
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
   color: #ffffff;

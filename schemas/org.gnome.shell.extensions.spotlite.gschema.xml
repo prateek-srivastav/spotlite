@@ -9,6 +9,10 @@
       <default>[]</default>
       <summary>Where the search bar was dragged to: [centre x, top y] as fractions of the screen; empty is the default spot</summary>
     </key>
+    <key name="card-position" type="ad">
+      <default>[]</default>
+      <summary>Where the Quick Look card was dragged to: [centre x, top y] as fractions of the screen; empty is the middle</summary>
+    </key>
     <key name="search-wikipedia" type="b">
       <default>true</default>
       <summary>Show Wikipedia articles (sends the query to wikipedia.org)</summary>

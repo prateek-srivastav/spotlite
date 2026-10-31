@@ -7,7 +7,6 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import Pango from "gi://Pango";
-import Shell from "gi://Shell";
 import St from "gi://St";
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
@@ -23,6 +22,8 @@ const OPEN_MS = 130;
 const CARD_MS = 160;
 const SLOW_ORDER = ["weather", "answer", "dictionary", "wikipedia", "files"];
 const ENTER_KEYS = [Clutter.KEY_Return, Clutter.KEY_KP_Enter, Clutter.KEY_ISO_Enter];
+const MODIFIER_KEYS = [Clutter.KEY_Control_L, Clutter.KEY_Control_R, Clutter.KEY_Shift_L, Clutter.KEY_Shift_R,
+  Clutter.KEY_Alt_L, Clutter.KEY_Alt_R, Clutter.KEY_Super_L, Clutter.KEY_Super_R, Clutter.KEY_ISO_Level3_Shift];
 
 function wrappingLabel(text, styleClass) {
   const label = new St.Label({ text, style_class: styleClass, x_expand: true });
@@ -32,15 +33,25 @@ function wrappingLabel(text, styleClass) {
   return label;
 }
 
+// card text: selectable with the mouse, copied with Ctrl+C (see the key handler)
+function cardLabel(text, styleClass) {
+  const label = wrappingLabel(text, styleClass);
+  label.clutter_text.reactive = true;
+  label.clutter_text.selectable = true;
+  label.clutter_text.editable = false;
+  return label;
+}
+
 export const Overlay = GObject.registerClass(
 class SpotliteOverlay extends St.Widget {
   constructor(searcher, settings) {
-    super({ style_class: "spotlite-overlay", reactive: true, visible: false });
+    // not reactive and not modal: only the panel and the card take the pointer, so the
+    // windows underneath keep scrolling and clicking; Spotlite holds just the keyboard
+    super({ style_class: "spotlite-overlay", reactive: false, visible: false });
     this._searcher = searcher;
     this._settings = settings;
-    this._drag = null;           // while the panel is being moved: where the press started
+    this._drag = null;           // while the bar or the card is being moved: which, and where the press started
     this._isOpen = false;
-    this._grab = null;
     this._gen = 0;               // bumped per keystroke; late results for older text are dropped
     this._cancellable = new Gio.Cancellable();
     this._timers = new Map();    // slow source name -> GLib timeout id
@@ -53,67 +64,13 @@ class SpotliteOverlay extends St.Widget {
     this._navigated = false;     // Up/Down pressed since the last keystroke: Space previews
     this._selectedKey = null;
     this._card = null;
+    this._cardFrame = null;      // the card plus its frosted glass, placed together
     this._cardResult = null;
     this._images = new Map();    // image URL -> Promise<Gio.File>
 
     this._buildPanel();
-    this._scrim = new St.Widget({ style_class: "spotlite-scrim", reactive: true, visible: false });
-    this._scrim.add_constraint(new Clutter.BindConstraint({ source: this, coordinate: Clutter.BindCoordinate.SIZE }));
-    this.add_child(this._scrim);
 
-    // a click outside the card closes the card; outside the panel, Spotlite. Decided by
-    // where the click landed, never by stopping it: stopping a press on the panel or card
-    // also kept their own buttons (result rows, ×) from ever being clicked
-    this.connect("button-press-event", (_actor, event) => {
-      const target = global.stage.get_event_actor(event);
-      const inside = actor => actor !== null && (target === actor || actor.contains(target));
-      if (this._card) {
-        if (!inside(this._card))
-          this._closeCard();
-      } else if (!inside(this._panel)) {
-        this.close();
-      } else if (this._isDragHandle(target)) {
-        // like macOS, the bar moves when dragged by its frame (not its text or results)
-        const [x, y] = event.get_coords();
-        // where the panel really is: while centred, frame.x still holds an old fixed position
-        const box = this._frame.get_allocation_box();
-        this._drag = { x, y, frameX: box.x1, frameY: box.y1, moved: false };
-        return Clutter.EVENT_STOP;
-      }
-      return Clutter.EVENT_PROPAGATE;
-    });
-    this.connect("motion-event", (_actor, event) => {
-      if (!this._drag)
-        return Clutter.EVENT_PROPAGATE;
-      const [x, y] = event.get_coords();
-      const d = this._drag;
-      if (!d.moved && Math.hypot(x - d.x, y - d.y) < 4)
-        return Clutter.EVENT_STOP; // a click, not yet a drag
-      d.moved = true;
-      this.set_cursor_type(Clutter.CursorType.MOVE);
-      this._placeFrame(d.frameX + x - d.x, d.frameY + y - d.y);
-      return Clutter.EVENT_STOP;
-    });
-    this.connect("button-release-event", () => {
-      if (!this._drag)
-        return Clutter.EVENT_PROPAGATE;
-      if (this._drag.moved) {
-        this.set_cursor_type(Clutter.CursorType.DEFAULT);
-        // remembered as fractions of the screen, so it lands in the same spot on any monitor
-        const centre = (this._frame.x + this._frame.width / 2) / this.width;
-        this._settings.set_value("panel-position", new GLib.Variant("ad", [centre, this._frame.y / this.height]));
-      }
-      this._drag = null;
-      this._entry.grab_key_focus();
-      return Clutter.EVENT_STOP;
-    });
-    // if focus ever leaves the entry (a click on the card), keys still work
-    this.connect("key-press-event", (_actor, event) => {
-      if (this._entry.clutter_text.has_key_focus())
-        return Clutter.EVENT_PROPAGATE;
-      this._entry.grab_key_focus();
-      return this._onKeyPress(event);
-    });
+    // while dragging, the grab sends motion and release here even off the panel
     this.connect("destroy", () => this._onDestroy());
 
     Main.layoutManager.modalDialogGroup.add_child(this);
@@ -132,6 +89,8 @@ class SpotliteOverlay extends St.Widget {
     this._frame.add_child(this._glass);
     this._frame.add_child(this._panel);
     this._frame.connect("notify::allocation", () => this._glass.sync());
+    this._panel.connect("button-press-event", (_a, event) =>
+      this._onFramePress(event, this._panel, this._frame, "panel-position"));
     this.add_child(this._frame);
 
     const searchRow = new St.BoxLayout({ style_class: "spotlite-search-row" });
@@ -169,10 +128,109 @@ class SpotliteOverlay extends St.Widget {
     return this._isOpen;
   }
 
-  // the panel's own frame: padding, the search icon, group headings; not the text, not a result
-  _isDragHandle(target) {
-    for (let a = target; a && a !== this._panel; a = a.get_parent()) {
-      if (a === this._entry || a instanceof St.Button || a instanceof St.ScrollBar)
+  // Every event on screen while open passes here first (the stage's captured-event), and
+  // goes on: a press outside the card closes it; outside the panel too, Spotlite, while the
+  // click still reaches whatever was clicked, as on macOS.
+  _onCapturedEvent(event) {
+    const type = event.type();
+    // a drag in progress: the pressed button keeps sending the pointer's moves our way, and
+    // they are taken here, before text under the pointer could take them to select
+    if (this._drag && (type === Clutter.EventType.MOTION || type === Clutter.EventType.BUTTON_RELEASE)) {
+      if (type === Clutter.EventType.MOTION)
+        this._dragTo(event);
+      else
+        this._endDrag();
+      return Clutter.EVENT_STOP;
+    }
+    if (type === Clutter.EventType.KEY_PRESS)
+      return this._onCardKey(event);
+    if (type !== Clutter.EventType.BUTTON_PRESS && type !== Clutter.EventType.TOUCH_BEGIN)
+      return Clutter.EVENT_PROPAGATE;
+    const target = global.stage.get_event_actor(event);
+    const inside = actor => actor !== null && (target === actor || actor.contains(target));
+    if (this._card && inside(this._card))
+      return Clutter.EVENT_PROPAGATE;
+    if (inside(this._panel))
+      this._closeCard();
+    else
+      this.close();
+    return Clutter.EVENT_PROPAGATE;
+  }
+
+  _dragTo(event) {
+    const [x, y] = event.get_coords();
+    const d = this._drag;
+    if (!d.moved && Math.hypot(x - d.x, y - d.y) < 4)
+      return; // a click, not yet a drag
+    d.moved = true;
+    this.set_cursor_type(Clutter.CursorType.MOVE);
+    if (d.frame === this._frame)
+      this._placeFrame(d.frameX + x - d.x, d.frameY + y - d.y);
+    else
+      this._placeCard(d.frameX + x - d.x, d.frameY + y - d.y);
+  }
+
+  _endDrag() {
+    const { frame, key, moved } = this._drag;
+    this._drag = null;
+    this.set_cursor_type(Clutter.CursorType.DEFAULT);
+    if (moved && frame.get_stage()) {
+      // remembered as fractions of the screen, so it lands in the same spot on any monitor
+      const centre = (frame.x + frame.width / 2) / this.width;
+      this._settings.set_value(key, new GLib.Variant("ad", [centre, frame.y / this.height]));
+    }
+    this._entry.grab_key_focus();
+  }
+
+  // A press that reached the panel or the card itself: on its frame, start moving it (macOS
+  // moves Spotlight and Quick Look the same way).
+  _onFramePress(event, root, frame, key) {
+    if (event.type() !== Clutter.EventType.BUTTON_PRESS || !this._isDragHandle(global.stage.get_event_actor(event), root))
+      return Clutter.EVENT_PROPAGATE;
+    const [x, y] = event.get_coords();
+    // where it really is: while centred, frame.x still holds an old fixed position
+    const box = frame.get_allocation_box();
+    this._drag = { frame, key, x, y, frameX: box.x1, frameY: box.y1, moved: false };
+    return Clutter.EVENT_STOP;
+  }
+
+  // Keys while card text has the focus (after selecting some): Ctrl+C copies the selection,
+  // anything else goes back to the search, a typed letter included.
+  _onCardKey(event) {
+    const focus = global.stage.get_key_focus();
+    if (!(focus instanceof Clutter.Text) || focus === this._entry.clutter_text || !this.contains(focus))
+      return Clutter.EVENT_PROPAGATE;
+    const key = event.get_key_symbol();
+    if (MODIFIER_KEYS.includes(key))
+      return Clutter.EVENT_PROPAGATE; // Ctrl on its own: wait for the key it goes with
+    if ((event.get_state() & Clutter.ModifierType.CONTROL_MASK) && (key === Clutter.KEY_c || key === Clutter.KEY_C)) {
+      const selected = focus.get_selection();
+      if (selected)
+        St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, selected);
+      return Clutter.EVENT_STOP;
+    }
+    this._entry.grab_key_focus();
+    if (this._onKeyPress(event) === Clutter.EVENT_STOP)
+      return Clutter.EVENT_STOP;
+    const char = Clutter.keysym_to_unicode(key);
+    if (char && !(event.get_state() & Clutter.ModifierType.CONTROL_MASK))
+      this._entry.clutter_text.insert_unichar(String.fromCodePoint(char));
+    return Clutter.EVENT_STOP;
+  }
+
+  // keyboard focus moved somewhere else (another window, the overview): close, like macOS
+  _onKeyFocusChanged() {
+    const focus = global.stage.get_key_focus();
+    if (!this._drag && (focus === null || !this.contains(focus)))
+      this.close();
+  }
+
+  // a frame to drag by: padding, the search icon, headings, the card's body; not the
+  // search text, a result, a button or a scroll bar
+  _isDragHandle(target, root) {
+    for (let a = target; a && a !== root; a = a.get_parent()) {
+      if (a === this._entry || a instanceof St.Button || a instanceof St.ScrollBar ||
+          (a instanceof Clutter.Text && a.selectable)) // dragging on text selects it
         return false;
     }
     return true;
@@ -186,6 +244,16 @@ class SpotliteOverlay extends St.Widget {
       Math.round(Math.max(0, Math.min(x, this.width - width))),
       Math.round(Math.max(0, Math.min(y, this.height - 120))));
     this._fitResults(this._frame.y);
+  }
+
+  // move the Quick Look card, kept fully on the monitor
+  _placeCard(x, y) {
+    const [, width] = this._cardFrame.get_preferred_width(-1);
+    const [, height] = this._cardFrame.get_preferred_height(width);
+    this._cardCentre.enabled = false;
+    this._cardFrame.set_position(
+      Math.round(Math.max(0, Math.min(x, this.width - width))),
+      Math.round(Math.max(0, Math.min(y, this.height - height))));
   }
 
   // the results list scrolls rather than run off the bottom of the screen when the bar sits low
@@ -217,7 +285,6 @@ class SpotliteOverlay extends St.Widget {
     }
     this._cardMaxHeight = Math.round(monitor.height * CARD_MAX_HEIGHT);
 
-    this._grab = Main.pushModal(this, { actionMode: Shell.ActionMode.SYSTEM_MODAL });
     this._navigated = false;
     this.remove_all_transitions();
     this.visible = true;
@@ -228,6 +295,13 @@ class SpotliteOverlay extends St.Widget {
     this._frame.ease({ scale_x: 1, scale_y: 1, duration: OPEN_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
     this._entry.grab_key_focus();
     this._entry.clutter_text.set_selection(0, -1); // like Spotlight, the last query comes back selected
+    global.stage.connectObject(
+      "captured-event", (_stage, event) => this._onCapturedEvent(event),
+      "notify::key-focus", () => this._onKeyFocusChanged(), this);
+    global.display.connectObject("notify::focus-window", () => {
+      if (global.display.focus_window)
+        this.close(); // Alt+Tab or a click gave a window the focus
+    }, this);
   }
 
   close() {
@@ -235,10 +309,11 @@ class SpotliteOverlay extends St.Widget {
       return;
     this._isOpen = false;
     this._closeCard();
-    if (this._grab) {
-      Main.popModal(this._grab);
-      this._grab = null;
-    }
+    this._stopWatching();
+    // give the keyboard back to the window that had it
+    const focus = global.stage.get_key_focus();
+    if (focus && this.contains(focus))
+      global.stage.set_key_focus(null);
     this.ease({
       opacity: 0, duration: OPEN_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
       onComplete: () => {
@@ -246,6 +321,12 @@ class SpotliteOverlay extends St.Widget {
           this.visible = false;
       },
     });
+  }
+
+  _stopWatching() {
+    global.stage.disconnectObject(this);
+    global.display.disconnectObject(this);
+    this._drag = null;
   }
 
   toggle() {
@@ -537,9 +618,9 @@ class SpotliteOverlay extends St.Widget {
 
   _closeCard() {
     this._cardResult = null;
-    this._card?.destroy();
+    this._cardFrame?.destroy();
+    this._cardFrame = null;
     this._card = null;
-    this._scrim.visible = false;
     if (this._isOpen)
       this._entry.grab_key_focus();
   }
@@ -562,11 +643,19 @@ class SpotliteOverlay extends St.Widget {
     }
 
     const replacing = this._card !== null; // flipping through results with ↑↓: no zoom-in each time
-    this._card?.destroy();
+    this._cardFrame?.destroy();
     const card = new St.BoxLayout({
       style_class: "spotlite-card", orientation: Clutter.Orientation.VERTICAL, reactive: true,
     });
-    card.add_constraint(new Clutter.AlignConstraint({ source: this, align_axis: Clutter.AlignAxis.BOTH, factor: 0.5 }));
+    // frosted glass under the card, like the bar; the frame is what gets placed and dragged
+    const glass = new Glass({ radius: 22 });
+    const frame = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+    this._cardCentre = new Clutter.AlignConstraint({ source: this, align_axis: Clutter.AlignAxis.BOTH, factor: 0.5 });
+    frame.add_constraint(this._cardCentre);
+    frame.add_child(glass);
+    frame.add_child(card);
+    frame.connect("notify::allocation", () => glass.sync());
+    card.connect("button-press-event", (_a, event) => this._onFramePress(event, card, frame, "card-position"));
 
     // a Quick Look toolbar: close on the left, open the source on the right
     const toolbar = new St.BoxLayout({ style_class: "spotlite-card-toolbar" });
@@ -605,9 +694,9 @@ class SpotliteOverlay extends St.Widget {
       y_align: Clutter.ActorAlign.START,
     }));
     const titles = new St.BoxLayout({ orientation: Clutter.Orientation.VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
-    titles.add_child(wrappingLabel(data.title ?? result.title, "spotlite-card-title"));
+    titles.add_child(cardLabel(data.title ?? result.title, "spotlite-card-title"));
     if (data.subtitle)
-      titles.add_child(wrappingLabel(data.subtitle, "spotlite-card-subtitle"));
+      titles.add_child(cardLabel(data.subtitle, "spotlite-card-subtitle"));
     head.add_child(titles);
     content.add_child(head);
     for (const block of data.body ?? [])
@@ -623,13 +712,19 @@ class SpotliteOverlay extends St.Widget {
     card.add_child(scroll);
 
     this._card = card;
-    this.add_child(card);
-    this._scrim.visible = true;
+    this._cardFrame = frame;
+    this.add_child(frame);
+    // where it was dragged to last time, else the middle of the screen
+    const saved = this._settings.get_value("card-position").deep_unpack();
+    if (saved.length === 2) {
+      const [, width] = frame.get_preferred_width(-1);
+      this._placeCard(saved[0] * this.width - width / 2, saved[1] * this.height);
+    }
     if (!replacing) {
-      card.set_pivot_point(0.5, 0.5);
-      card.set_scale(0.94, 0.94);
-      card.opacity = 0;
-      card.ease({ scale_x: 1, scale_y: 1, opacity: 255, duration: CARD_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+      frame.set_pivot_point(0.5, 0.5);
+      frame.set_scale(0.94, 0.94);
+      frame.opacity = 0;
+      frame.ease({ scale_x: 1, scale_y: 1, opacity: 255, duration: CARD_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
     }
     this._entry.grab_key_focus();
   }
@@ -639,9 +734,9 @@ class SpotliteOverlay extends St.Widget {
     case "heading":
       return new St.Label({ text: block.text, style_class: "spotlite-card-heading" });
     case "meta":
-      return wrappingLabel(block.text, "spotlite-card-meta");
+      return cardLabel(block.text, "spotlite-card-meta");
     case "mono":
-      return wrappingLabel(block.text, "spotlite-card-mono");
+      return cardLabel(block.text, "spotlite-card-mono");
     case "columns": {
       // a table row: fixed-width cells so rows line up under each other
       const row = new St.BoxLayout({ style_class: "spotlite-card-columns" });
@@ -653,14 +748,14 @@ class SpotliteOverlay extends St.Widget {
       const row = new St.BoxLayout({ style_class: "spotlite-card-definition" });
       row.add_child(new St.Label({ text: `${block.n}`, style_class: "spotlite-card-number" }));
       const column = new St.BoxLayout({ orientation: Clutter.Orientation.VERTICAL, x_expand: true });
-      column.add_child(wrappingLabel(block.text, "spotlite-card-paragraph"));
+      column.add_child(cardLabel(block.text, "spotlite-card-paragraph"));
       if (block.example)
-        column.add_child(wrappingLabel(`“${block.example}”`, "spotlite-card-example"));
+        column.add_child(cardLabel(`“${block.example}”`, "spotlite-card-example"));
       row.add_child(column);
       return row;
     }
     default:
-      return wrappingLabel(block.text, "spotlite-card-paragraph");
+      return cardLabel(block.text, "spotlite-card-paragraph");
     }
   }
 
@@ -668,9 +763,6 @@ class SpotliteOverlay extends St.Widget {
     this._destroyed = true;
     this._cancelSlow();
     this._cancellable.cancel();
-    if (this._grab) {
-      Main.popModal(this._grab);
-      this._grab = null;
-    }
+    this._stopWatching();
   }
 });

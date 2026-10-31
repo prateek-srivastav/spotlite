@@ -67,12 +67,15 @@ export default class SpotlitePreferences extends ExtensionPreferences {
     update();
 
     // the bar can be dragged anywhere (by its frame); this puts it back
-    const position = new Adw.ActionRow({ title: "Search bar position", subtitle: "Drag the bar by its edge to move it" });
+    const position = new Adw.ActionRow({
+      title: "Window positions", subtitle: "Drag the search bar or the Quick Look card by its edge to move it",
+    });
     const reset = new Gtk.Button({ label: "Reset", valign: Gtk.Align.CENTER });
-    reset.connect("clicked", () => settings.reset("panel-position"));
+    const keys = ["panel-position", "card-position"];
+    reset.connect("clicked", () => keys.forEach(k => settings.reset(k)));
     position.add_suffix(reset);
-    const moved = () => (reset.sensitive = settings.get_value("panel-position").n_children() > 0);
-    settings.connect("changed::panel-position", moved);
+    const moved = () => (reset.sensitive = keys.some(k => settings.get_value(k).n_children() > 0));
+    keys.forEach(k => settings.connect(`changed::${k}`, moved));
     moved();
     group.add(position);
     return group;
