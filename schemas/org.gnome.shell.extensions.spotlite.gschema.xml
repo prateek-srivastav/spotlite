@@ -13,6 +13,11 @@
       <default>[]</default>
       <summary>Where the Quick Look card was dragged to: [centre x, top y] as fractions of the screen; empty is the middle</summary>
     </key>
+    <key name="transparency" type="i">
+      <range min="0" max="90"/>
+      <default>35</default>
+      <summary>How much of the frosted desktop shows through the search bar and Quick Look card, in percent</summary>
+    </key>
     <key name="search-wikipedia" type="b">
       <default>true</default>
       <summary>Show Wikipedia articles (sends the query to wikipedia.org)</summary>

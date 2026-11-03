@@ -20,6 +20,7 @@ const PANEL_TOP = 0.18; // fraction of the monitor's height
 const CARD_MAX_HEIGHT = 0.8;
 const OPEN_MS = 130;
 const CARD_MS = 160;
+const CARD_EXTRA_OPACITY = 0.08;
 const SLOW_ORDER = ["weather", "answer", "dictionary", "wikipedia", "files"];
 const ENTER_KEYS = [Clutter.KEY_Return, Clutter.KEY_KP_Enter, Clutter.KEY_ISO_Enter];
 const MODIFIER_KEYS = [Clutter.KEY_Control_L, Clutter.KEY_Control_R, Clutter.KEY_Shift_L, Clutter.KEY_Shift_R,
@@ -126,6 +127,21 @@ class SpotliteOverlay extends St.Widget {
 
   get isOpen() {
     return this._isOpen;
+  }
+
+  // The panel and card tint over the frosted glass, from the Transparency setting; inline,
+  // so it follows the setting without reloading the stylesheet. The card stays a little
+  // more solid, since it is for reading.
+  _tint(actor, extra = 0) {
+    const alpha = Math.min(1, 1 - this._settings.get_int("transparency") / 100 + extra);
+    const [r, g, b] = Main.getStyleVariant() === "light" ? [248, 248, 250] : [30, 30, 34];
+    actor.style = `background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)});`;
+  }
+
+  _applyTint() {
+    this._tint(this._panel);
+    if (this._card)
+      this._tint(this._card, CARD_EXTRA_OPACITY);
   }
 
   // Every event on screen while open passes here first (the stage's captured-event), and
@@ -293,11 +309,13 @@ class SpotliteOverlay extends St.Widget {
     this._frame.set_scale(0.96, 0.96);
     this.ease({ opacity: 255, duration: OPEN_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
     this._frame.ease({ scale_x: 1, scale_y: 1, duration: OPEN_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+    this._applyTint();
     this._entry.grab_key_focus();
     this._entry.clutter_text.set_selection(0, -1); // like Spotlight, the last query comes back selected
     global.stage.connectObject(
       "captured-event", (_stage, event) => this._onCapturedEvent(event),
       "notify::key-focus", () => this._onKeyFocusChanged(), this);
+    this._settings.connectObject("changed::transparency", () => this._applyTint(), this);
     global.display.connectObject("notify::focus-window", () => {
       if (global.display.focus_window)
         this.close(); // Alt+Tab or a click gave a window the focus
@@ -326,6 +344,7 @@ class SpotliteOverlay extends St.Widget {
   _stopWatching() {
     global.stage.disconnectObject(this);
     global.display.disconnectObject(this);
+    this._settings.disconnectObject(this);
     this._drag = null;
   }
 
@@ -537,7 +556,11 @@ class SpotliteOverlay extends St.Widget {
     this._rows[this._selected]?.remove_style_pseudo_class("selected");
     this._selected = index;
     const row = this._rows[index];
-    row.add_style_pseudo_class("selected");
+    // highlighted only once the arrow keys are used: a highlight while typing looked like
+    // a selection Space would preview, but Space only previews after ↑/↓ (Enter still
+    // opens the first result either way)
+    if (this._navigated)
+      row.add_style_pseudo_class("selected");
     ensureActorVisibleInScrollView(this._scroll, row);
   }
 
@@ -647,6 +670,7 @@ class SpotliteOverlay extends St.Widget {
     const card = new St.BoxLayout({
       style_class: "spotlite-card", orientation: Clutter.Orientation.VERTICAL, reactive: true,
     });
+    this._tint(card, CARD_EXTRA_OPACITY);
     // frosted glass under the card, like the bar; the frame is what gets placed and dragged
     const glass = new Glass({ radius: 22 });
     const frame = new St.Widget({ layout_manager: new Clutter.BinLayout() });

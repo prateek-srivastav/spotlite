@@ -20,11 +20,16 @@ A fast search bar for GNOME, inspired by macOS Spotlight. Press **Super+Space**,
 - **Typos**: when a search finds nothing, it is retried with the corrected spelling (Wikipedia's "Did you mean" for names and places, Wiktionary's closest word, a typo or two for app names) and says "Showing results for …"
 - **Web**: a "Search the web" row, plus prefixes that jump to a site: `g`, `ddg`, `yt`, `tr`, `map`, `so`, `gh`, `wiki`, `def`
 
+![“srk age” answered directly](screenshots/answer.png)
+
+![Weather in Varanasi](screenshots/weather.png)
+
 ### Moving the bar
 
 Drag the bar by its edge (the search icon, the space around the results) to move it
 anywhere, like on macOS; it opens there next time. The Quick Look card moves the same way,
-by its toolbar or picture. Reset puts both back (preferences).
+by its toolbar or picture. Reset puts both back (preferences), where a Transparency slider also
+sets how much of the frosted desktop shows through.
 
 Spotlite only takes the keyboard: the windows underneath keep scrolling and clicking while it's
 open, and clicking one (or switching with Alt+Tab) closes Spotlite, as on macOS.

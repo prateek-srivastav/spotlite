@@ -25,6 +25,7 @@ export default class SpotlitePreferences extends ExtensionPreferences {
     const page = new Adw.PreferencesPage();
     window.add(page);
     page.add(this._shortcutGroup(window, settings));
+    page.add(this._appearanceGroup(settings));
     page.add(this._sourcesGroup(settings));
     page.add(this._weatherGroup(settings));
     page.add(this._wolframGroup(settings));
@@ -78,6 +79,23 @@ export default class SpotlitePreferences extends ExtensionPreferences {
     keys.forEach(k => settings.connect(`changed::${k}`, moved));
     moved();
     group.add(position);
+    return group;
+  }
+
+  _appearanceGroup(settings) {
+    const group = new Adw.PreferencesGroup({ title: "Appearance" });
+    const row = new Adw.ActionRow({
+      title: "Transparency", subtitle: "How much of the frosted desktop shows through the search bar and Quick Look",
+    });
+    const scale = new Gtk.Scale({
+      adjustment: new Gtk.Adjustment({ lower: 0, upper: 90, step_increment: 5, page_increment: 10 }),
+      digits: 0, draw_value: true, value_pos: Gtk.PositionType.LEFT, hexpand: true,
+      width_request: 220, valign: Gtk.Align.CENTER,
+    });
+    scale.set_format_value_func((_scale, value) => `${value}%`);
+    settings.bind("transparency", scale.adjustment, "value", Gio.SettingsBindFlags.DEFAULT);
+    row.add_suffix(scale);
+    group.add(row);
     return group;
   }
 
